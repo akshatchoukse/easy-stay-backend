@@ -33,6 +33,9 @@ const hotelSchema = mongoose.Schema(
     mapLink: {
       type: String,
     },
+    embedMapLink: {
+      type: String,
+    },
     images: [
       {
         url: {
@@ -51,9 +54,11 @@ const hotelSchema = mongoose.Schema(
     ],
     amenities: [
       {
-        type: String,
+        name: { type: String, required: true },
+        icon: { type: String }, // Store the React Icon component name or identifier
       },
     ],
+
     startingPrice: {
       type: Number,
       required: true,

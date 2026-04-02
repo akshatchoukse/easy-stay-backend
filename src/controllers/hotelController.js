@@ -36,7 +36,7 @@ const getHotelById = async (req, res) => {
 // @route   POST /api/hotels
 // @access  Private/Admin
 const createHotel = async (req, res) => {
-  const { name, description, address, city, state, pincode, phone, whatsappNumber, mapLink, amenities, startingPrice, coverIndex } = req.body;
+  const { name, description, address, city, state, pincode, phone, whatsappNumber, mapLink, embedMapLink, amenities, startingPrice, coverIndex } = req.body;
 
   try {
     const hotel = new Hotel({
@@ -49,6 +49,7 @@ const createHotel = async (req, res) => {
       phone,
       whatsappNumber,
       mapLink,
+      embedMapLink,
       amenities: (amenities && amenities.trim() !== '') ? JSON.parse(amenities) : [],
       startingPrice: parseFloat(startingPrice) || 0,
       createdBy: req.user._id,
@@ -73,7 +74,7 @@ const createHotel = async (req, res) => {
 // @route   PUT /api/hotels/:id
 // @access  Private/Admin
 const updateHotel = async (req, res) => {
-  const { name, description, address, city, state, pincode, phone, whatsappNumber, mapLink, amenities, startingPrice, coverIndex } = req.body;
+  const { name, description, address, city, state, pincode, phone, whatsappNumber, mapLink, embedMapLink, amenities, startingPrice, coverIndex } = req.body;
 
   try {
     const hotel = await Hotel.findById(req.params.id);
@@ -98,6 +99,7 @@ const updateHotel = async (req, res) => {
       hotel.phone = phone || hotel.phone;
       hotel.whatsappNumber = whatsappNumber || hotel.whatsappNumber;
       hotel.mapLink = mapLink || hotel.mapLink;
+      hotel.embedMapLink = embedMapLink !== undefined ? embedMapLink : hotel.embedMapLink;
       hotel.startingPrice = startingPrice !== undefined ? (parseFloat(startingPrice) || 0) : hotel.startingPrice;
       hotel.amenities = (amenities && amenities.trim() !== '') ? JSON.parse(amenities) : hotel.amenities;
 
@@ -164,10 +166,55 @@ const deleteHotel = async (req, res) => {
   }
 };
 
+// @desc    Delete hotel image
+// @route   POST /api/hotels/:id/remove-image
+// @access  Private/Admin
+const deleteHotelImage = async (req, res) => {
+  try {
+    const hotel = await Hotel.findById(req.params.id);
+    if (!hotel) return res.status(404).json({ message: 'Hotel not found' });
+
+    // Check if user is the creator or Admin
+    if (
+      hotel.createdBy.toString() !== req.user._id.toString() &&
+      req.user.role !== 'Admin'
+    ) {
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to update this hotel' });
+    }
+
+    const { public_id } = req.body;
+    if (!public_id) return res.status(400).json({ message: 'public_id is required' });
+
+    const imageToDelete = hotel.images.find(img => img.public_id === public_id);
+
+    if (imageToDelete) {
+      // Delete from cloudinary
+      await cloudinary.uploader.destroy(public_id);
+      // Remove from hotel images array
+      hotel.images = hotel.images.filter(img => img.public_id !== public_id);
+      
+      // If the deleted image was a cover, make the first one a cover if exists
+      if (imageToDelete.isCover && hotel.images.length > 0) {
+        hotel.images[0].isCover = true;
+      }
+
+      await hotel.save();
+      res.json({ message: 'Image deleted', images: hotel.images });
+    } else {
+      res.status(404).json({ message: 'Image not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getHotels,
   getHotelById,
   createHotel,
   updateHotel,
   deleteHotel,
+  deleteHotelImage,
 };

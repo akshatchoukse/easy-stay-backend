@@ -6,6 +6,7 @@ const {
   createHotel,
   updateHotel,
   deleteHotel,
+  deleteHotelImage,
 } = require('../controllers/hotelController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');
@@ -30,5 +31,6 @@ router.put(
   updateHotel
 );
 router.delete('/:id', protect, authorize('Admin', 'Manager'), deleteHotel);
+router.post('/:id/remove-image', protect, authorize('Admin', 'Manager'), deleteHotelImage);
 
 module.exports = router;
